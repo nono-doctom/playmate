@@ -1,0 +1,22 @@
+[
+  {"pseudo":"Azural","email":"azural@example.com","password":"password123","platform":"PC","style":"compétitif","games":"Valorant,League of Legends","mood":" Tryhard","bio":"Joueur stratège, toujours prêt pour du 5v5."},
+  {"pseudo":"NekoGamer","email":"nekogamer@example.com","password":"password123","platform":"PC","style":"chill","games":"Minecraft,Fortnite","mood":" Chill","bio":"Créative et chill, j'aime build et farm."},
+  {"pseudo":"ByteKnight","email":"byteknight@example.com","password":"password123","platform":"PS5","style":"compétitif","games":"FIFA,Call of Duty","mood":" Tryhard","bio":"Ex-pro amateur, j'aime la compétition."},
+  {"pseudo":"LunaPlay","email":"lunaplay@example.com","password":"password123","platform":"Switch","style":"fun","games":"Mario Kart,Minecraft","mood":" Fun","bio":"Toujours partante pour une course ou du coop."},
+  {"pseudo":"ShadowFox","email":"shadowfox@example.com","password":"password123","platform":"PC","style":"RP","games":"Minecraft,Among Us","mood":" Vocal only","bio":"J'adore les sessions RP et les histoires."},
+  {"pseudo":"ViperX","email":"viperx@example.com","password":"password123","platform":"Xbox","style":"compétitif","games":"Apex Legends,Call of Duty","mood":"Tryhard","bio":"Top frag ou rien, team player sérieux."},
+  {"pseudo":"PixelPanda","email":"pixelpanda@example.com","password":"password123","platform":"PC","style":"chill","games":"Stardew Valley,Minecraft","mood":"Chill","bio":"Jeux relax, chill stream et fun."},
+  {"pseudo":"RogueWave","email":"roguewave@example.com","password":"password123","platform":"PC","style":"fun","games":"Rocket League,Overwatch","mood":" Fun","bio":"Fou rire garanti, bon sens de l'humour."},
+  {"pseudo":"KiraNova","email":"kiranova@example.com","password":"password123","platform":"PS5","style":"compétitif","games":"Fortnite,Valorant","mood":" Tryhard","bio":"Aim assist? Non merci. Aim pro."},
+  {"pseudo":"MangoToast","email":"mangotoast@example.com","password":"password123","platform":"PC","style":"chill","games":"League of Legends,Minecraft","mood":" Chill","bio":"Coach de bronze vers argent ; on progresse ensemble."},
+  {"pseudo":"EchoByte","email":"echobyte@example.com","password":"password123","platform":"PC","style":"fun","games":"Valorant,Overwatch","mood":" Fun","bio":"Main support, memes et bonne humeur."},
+  {"pseudo":"GreyWolf","email":"greywolf@example.com","password":"password123","platform":"Xbox","style":"compétitif","games":"Call of Duty,Apex Legends","mood":" Tryhard","bio":"Capitaine d'équipe, stratégie avant tout."},
+  {"pseudo":"SakuraDream","email":"sakuradream@example.com","password":"password123","platform":"Switch","style":"chill","games":"Zelda,Mario Kart","mood":" Chill","bio":"Explorations et aventures tranquilles."},
+  {"pseudo":"NeonRift","email":"neonrift@example.com","password":"password123","platform":"PC","style":"compétitif","games":"Rocket League,Valorant","mood":" Tryhard","bio":"Réactif, communicatif — victoire ou rien."},
+  {"pseudo":"CocoBytes","email":"cocobytes@example.com","password":"password123","platform":"PC","style":"fun","games":"Minecraft,Among Us","mood":" Fun","bio":"Fan de mini-jeux et défis bizarres."},
+  {"pseudo":"IronClad","email":"ironclad@example.com","password":"password123","platform":"PS5","style":"compétitif","games":"FIFA,Rocket League","mood":" Tryhard","bio":"Precision et entraînement quotidien."},
+  {"pseudo":"MysticFox","email":"mysticfox@example.com","password":"password123","platform":"PC","style":"RP","games":"Skyrim,Minecraft","mood":"Vocal only","bio":"Grande narrative, love RP sessions."},
+  {"pseudo":"BlitzSpark","email":"blitzspark@example.com","password":"password123","platform":"PC","style":"fun","games":"Fortnite,Apex Legends","mood":"Fun","bio":"Streamer en herbe, viens rigoler !"},
+  {"pseudo":"ZenPixel","email":"zenpixel@example.com","password":"password123","platform":"Switch","style":"chill","games":"Animal Crossing,Stardew Valley","mood":"Chill","bio":"Jardinage virtuel et chill vibes."},
+  {"pseudo":"NovaStrike","email":"novastrike@example.com","password":"password123","platform":"PC","style":"compétitif","games":"Valorant,League of Legends","mood":" Tryhard","bio":"Toujours là pour carry ou coach."}
+]

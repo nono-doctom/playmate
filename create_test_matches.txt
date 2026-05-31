@@ -1,0 +1,90 @@
+<?php
+include 'db.php';
+include 'auth.php';
+requireLogin();
+
+$me = getUserId();
+
+// Récupère tous les autres utilisateurs que je n'ai PAS encore likés
+$stmt = $pdo->prepare("
+    SELECT id 
+    FROM users 
+    WHERE id != ? 
+    AND id NOT IN (
+        SELECT to_user FROM likes WHERE from_user = ?
+    )
+");
+$stmt->execute([$me, $me]);
+$others = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+// Quelques messages automatiques
+$msgs = [
+    "Salut !",
+    "Partant pour jouer ce soir ?",
+    "On se rejoint en ligne ?",
+    "GG la dernière game !",
+    "Tu joues à quoi ?"
+];
+
+// Pour chaque utilisateur que je n'ai pas encore liké
+foreach ($others as $u) {
+
+    // 1️⃣ J'enregistre mon like
+    $pdo->prepare("
+        INSERT INTO likes (from_user, to_user)
+        VALUES (?, ?)
+    ")->execute([$me, $u]);
+
+    // 2️⃣ Je vérifie si cette personne m’a aussi liké avant → match !
+    $check = $pdo->prepare("
+        SELECT COUNT(*) FROM likes 
+        WHERE from_user = ? AND to_user = ?
+    ");
+    $check->execute([$u, $me]);
+    $isMatch = $check->fetchColumn() > 0;
+
+    // 3️⃣ Si c’est un match, on crée des messages entre nous
+    if ($isMatch) {
+        $pdo->prepare("
+            INSERT INTO messages (from_user, to_user, content, created_at)
+            VALUES (?, ?, ?, NOW())
+        ")->execute([$me, $u, $msgs[array_rand($msgs)]]);
+        
+        $pdo->prepare("
+            INSERT INTO messages (from_user, to_user, content, created_at)
+            VALUES (?, ?, ?, NOW())
+        ")->execute([$u, $me, $msgs[array_rand($msgs)]]);
+    }
+}
+
+// 4️⃣ Crée des événements fake si aucun n'existe encore
+$evCheck = $pdo->query("SELECT COUNT(*) FROM events")->fetchColumn();
+if ($evCheck == 0) {
+    $pdo->prepare("
+        INSERT INTO events (title, description, game_id, event_time, host_user, created_at)
+        VALUES (?, ?, ?, ?, ?, NOW())
+    ")->execute([
+        "Tournoi amical",
+        "3v3 détente",
+        1,
+        date('Y-m-d H:i:s', strtotime('+3 days 20:00')),
+        $me
+    ]);
+
+    $pdo->prepare("
+        INSERT INTO events (title, description, game_id, event_time, host_user, created_at)
+        VALUES (?, ?, ?, ?, ?, NOW())
+    ")->execute([
+        "Soirée Chill",
+        "Session Minecraft relax",
+        2,
+        date('Y-m-d H:i:s', strtotime('+2 days 21:00')),
+        $me
+    ]);
+}
+
+echo "<h2>✅ Fausse activité créée sans doublons ni retours !</h2>";
+echo "<p>Chaque personne est likée une seule fois, et ne reviendra plus dans les matchs.</p>";
+echo "<p><strong>⚠️ Pense à supprimer ce fichier après usage.</strong></p>";
+?>
+create_test_matches.php
