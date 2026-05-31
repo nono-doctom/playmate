@@ -74,15 +74,19 @@ while($row = $result->fetch_assoc()){
 /* =========================
    jeux user
 ========================= */
+
 $userjeu = [];
 
-$result = $conn->query("
+$stmt = $conn->prepare("
     SELECT j.nom
     FROM jouer jo
-    JOIN jeu j
-    ON jo.id_jeu=j.id_jeu
-    WHERE jo.id_user=$id
+    JOIN jeu j ON jo.id_jeu = j.id_jeu
+    WHERE jo.id_user = ?
 ");
+
+$stmt->bind_param("i", $id);
+$stmt->execute();
+$result = $stmt->get_result();
 
 while($r = $result->fetch_assoc()){
     $userjeu[] = $r['nom'];
@@ -134,7 +138,330 @@ while($r = $res->fetch_assoc()){
 <meta charset="UTF-8">
 <title>Mon profil - PlayMate</title>
 
-<link rel="stylesheet" href="style.css">
+<style>
+    /* =========================
+   GLOBAL RESET
+========================= */
+* {
+  box-sizing: border-box;
+}
+
+body, html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  font-family: 'Georgia', serif;
+  background: radial-gradient(circle at 50% 50%, #00111f, #000814);
+  color: #fff;
+}
+
+/* =========================
+   CENTRAGE FORM PAGES
+========================= */
+.profil-form-page,
+.body-form {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+/* =========================
+   FORM CONTAINER (LOGIN + INSCRIPTION + PROFIL)
+========================= */
+.form-container {
+  width: 100%;
+  max-width: 420px;
+  background: rgba(0, 20, 40, 0.85);
+  padding: 40px 30px;
+  border-radius: 20px;
+  box-shadow: 0 0 40px rgba(0, 255, 255, 0.4);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 255, 255, 0.6);
+}
+
+/* TITRE */
+.form-title,
+.form-container h1 {
+  text-align: center;
+  color: #00f0ff;
+  margin-bottom: 25px;
+  text-shadow: 0 0 10px #00ffff, 0 0 20px #00bfff;
+}
+
+/* =========================
+   INPUTS / SELECT / TEXTAREA
+========================= */
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  padding: 12px;
+  margin-top: 8px;
+  margin-bottom: 15px;
+  border-radius: 12px;
+  border: 1px solid #00eaff;
+  background-color: rgba(0, 60, 100, 0.4);
+  color: #fff;
+  font-size: 1rem;
+  outline: none;
+  transition: 0.3s;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  border-color: #00ffff;
+  box-shadow: 0 0 10px #00eaff;
+}
+
+/* =========================
+   BUTTON
+========================= */
+.form-button {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  background-color: #00f0ff;
+  color: black;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.form-button:hover {
+  background-color: #00c0cc;
+  color: white;
+  box-shadow: 0 0 15px #00eaff;
+}
+
+/* =========================
+   ERROR / MESSAGE
+========================= */
+.error-msg {
+  color: #ff4d4d;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.result,
+#message {
+  text-align: center;
+  margin-top: 10px;
+  color: #00cfff;
+  text-shadow: 0 0 8px #00cfff;
+}
+
+/* =========================
+   DATE SELECT (PROFIL)
+========================= */
+.date-wrapper {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.date-select {
+  flex: 1;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid #00eaff;
+  background-color: rgba(0,60,100,0.4);
+  color: #fff;
+  text-align: center;
+}
+
+/* tailles fixes */
+.day-select { flex: 0 0 70px; }
+.month-select { flex: 0 0 110px; }
+.year-select { flex: 0 0 90px; }
+
+/* =========================
+   PERSONNAGES
+========================= */
+.personnages {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.personnage-card input {
+  display: none;
+}
+
+.personnage-content {
+  padding: 14px;
+  text-align: center;
+  border-radius: 12px;
+  border: 1px solid rgba(0,255,255,0.2);
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.personnage-content img {
+  width: 70px;
+  filter: drop-shadow(0 0 8px #00cfff);
+}
+
+.personnage-card input:checked + .personnage-content {
+  border-color: #00cfff;
+  box-shadow: 0 0 15px rgba(0,255,255,0.3);
+  transform: scale(1.03);
+}
+
+/* =========================
+   CHOICES.JS FIX
+========================= */
+.choices__inner {
+  background: rgba(0, 60, 100, 0.85) !important;
+  border: 1px solid #00eaff !important;
+  border-radius: 40px;
+  color: #fff !important;
+}
+
+/* texte sélectionné (tags) */
+.choices__list--multiple .choices__item {
+  background: #00a6c7 !important;
+  color: #00111f !important;
+  border-radius: 40px;
+}
+
+/* dropdown */
+.choices__list--dropdown {
+  background: rgba(0, 20, 40, 0.95) !important;
+  border: 1px solid #00eaff !important;
+  color: #fff !important;
+}
+
+/* items dropdown */
+.choices__item--selectable {
+  color: #fff !important;
+}
+
+/* item hover */
+.choices__item--selectable.is-highlighted {
+  background: #00f0ff !important;
+  color: black !important;
+}
+/* ===================== RESPONSIVE ===================== */
+
+/* TABLETTE + PETIT ÉCRAN */
+@media screen and (max-width: 1024px) {
+
+  .main-content {
+    margin-left: 0;
+    padding: 15px;
+  }
+
+  .sidebar {
+    width: 240px;
+  }
+
+  .profil-card,
+  .matches-page .card,
+  .interface-page .card {
+    width: 90%;
+    max-width: 500px;
+  }
+}
+
+/* MOBILE */
+@media screen and (max-width: 768px) {
+
+  /* Sidebar passe en haut */
+  .sidebar {
+    position: relative;
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    justify-content: center;
+    flex-wrap: wrap;
+    padding: 10px;
+  }
+
+  .main-content {
+    margin-left: 0;
+    padding: 10px;
+  }
+
+  /* TITRES */
+  body.home-page .main-title {
+    font-size: 2rem;
+    top: 10px;
+  }
+
+  .interface-title {
+    font-size: 1.6rem;
+    position: relative;
+    top: 0;
+    left: 0;
+    transform: none;
+    margin: 10px 0;
+  }
+
+  /* CARDS */
+  .card {
+    width: 95%;
+    padding: 15px;
+  }
+
+  .profil-card {
+    width: 95%;
+    padding: 20px;
+  }
+
+  /* TEXTE */
+  .text-container h1 {
+    font-size: 1.4rem;
+  }
+
+  .text-container p {
+    font-size: 1rem;
+  }
+
+  /* BOUTONS */
+  .btn,
+  .button-slide,
+  .wp-block-button__link {
+    font-size: 0.9rem;
+    padding: 10px 18px;
+  }
+
+  /* BACKGROUND FIX */
+  .interface-page,
+  .matches-page,
+  .img-background {
+    background-position: center;
+    background-size: cover;
+  }
+}
+
+/* PETITS TÉLÉPHONES */
+@media screen and (max-width: 480px) {
+
+  .sidebar {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .card {
+    width: 98%;
+  }
+
+  .profil-card {
+    width: 98%;
+  }
+}
+</style>
 
 <link rel="stylesheet"
 href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css"/>
@@ -226,13 +553,9 @@ Votre âge est de <strong><?= $age ?> ans</strong>
 <label>Photo de profil</label>
 
 <?php if(!empty($user['photo'])): ?>
-<div style="text-align:center;margin-bottom:15px;">
-    <img
-        src="<?= htmlspecialchars($user['photo']) ?>"
-        width="150"
-        height="150"
-        style="border-radius:50%;object-fit:cover;"
-    >
+<div style="text-align:center;margin-bottom:15px;" id="photoBox">
+
+
 </div>
 <?php endif; ?>
 
@@ -249,6 +572,10 @@ width="150"
 style="display:none; border-radius:50%; margin-top:15px;"
 >
 
+
+    <button type="button" id="deletePhoto" class="form-button" style="margin-top:10px;">
+        Supprimer la photo
+    </button>
 
 <!-- Plateforme -->
 <label>Plateforme</label>
@@ -343,11 +670,13 @@ Trouver des joueurs
 
 
 <script>
-const choixJeu = new Choices('#jeu',{
-    removeItemButton:true,
-    placeholderValue:'Choisis tes jeux...',
-    searchPlaceholderValue:'Rechercher un jeu...',
-    itemSelectText:''
+document.addEventListener('DOMContentLoaded', () => {
+    new Choices('#jeu',{
+        removeItemButton:true,
+        placeholderValue:'Choisis tes jeux...',
+        searchPlaceholderValue:'Rechercher un jeu...',
+        itemSelectText:''
+    });
 });
 
 
@@ -391,9 +720,9 @@ document.getElementById(id)
 
 
 /* aperçu image */
-document
-.querySelector('input[name="photo"]')
-.addEventListener('change', function(e){
+const photoInput = document.querySelector('input[name="photo"]');
+
+photoInput?.addEventListener('change', function(e){
 
     const file = e.target.files[0];
 
@@ -411,7 +740,29 @@ document
         reader.readAsDataURL(file);
     }
 });
+/* =========================
+   SUPPRIMER PHOTO
+========================= */
+document.getElementById('deletePhoto')?.addEventListener('click', function () {
 
+    if(!confirm("Supprimer la photo ?")) return;
+
+    fetch('deletePhoto.php', {
+        method: 'POST'
+    })
+    .then(res => res.json())
+    .then(data => {
+
+        if(data.success){
+            const box = document.getElementById('photoBox');
+            if(box) box.remove();
+        } else {
+            alert(data.error);
+        }
+
+    });
+
+});
 
 document.getElementById('profilForm')
 .addEventListener('submit', function(e){
