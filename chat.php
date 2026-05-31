@@ -85,18 +85,16 @@ $matchUser = mysqli_fetch_assoc($resUser);
 <meta charset="UTF-8">
 <title>Chat</title>
 
-<style>
-/* ===== GLOBAL ===== */
+<style>/* ===== GLOBAL ===== */
 body, html {
   margin:0;
   padding:0;
   width:100%;
   height:100%;
   font-family:'Georgia', serif;
-  overflow:hidden;
 }
 
-/* ===== FOND ===== */
+/* ===== PAGE ===== */
 .chat-page{
   position:relative;
   width:100%;
@@ -108,9 +106,11 @@ body, html {
   justify-content:center;
   color:white;
   overflow:hidden;
+  padding:20px;
+  box-sizing:border-box;
 }
 
-/* halo */
+/* ===== FOND ANIMÉ ===== */
 .chat-page::before{
   content:"";
   position:absolute;
@@ -121,7 +121,6 @@ body, html {
   animation: glowPulse 6s infinite alternate;
 }
 
-/* étoiles */
 .chat-page::after{
   content:"";
   position:absolute;
@@ -134,6 +133,92 @@ body, html {
   animation: starsFlow 12s linear infinite;
 }
 
+/* ===== TITRE ===== */
+h2{
+  position:relative;
+  z-index:5;
+  color:#00f0ff;
+  text-shadow:0 0 20px #00ffff;
+  text-align:center;
+  font-size:1.4rem;
+  margin-bottom:10px;
+}
+
+/* ===== CHAT BOX ===== */
+#chat-box{
+  position:relative;
+  z-index:5;
+  width:100%;
+  max-width:900px;
+  height:60vh;
+  overflow-y:auto;
+  background:rgba(0,0,0,0.65);
+  border-radius:20px;
+  padding:15px;
+  box-shadow:0 0 20px #00f0ff;
+}
+
+/* messages */
+.message{
+  padding:10px 14px;
+  margin:8px 0;
+  border-radius:18px;
+  max-width:75%;
+  word-wrap:break-word;
+  font-size:0.95rem;
+}
+
+.mine{
+  background:#00f0ff;
+  color:black;
+  margin-left:auto;
+}
+
+.theirs{
+  background:#222;
+  color:white;
+}
+
+/* ===== FORM ===== */
+#chat-form{
+  position:relative;
+  z-index:5;
+  width:100%;
+  max-width:900px;
+  display:flex;
+  gap:10px;
+  margin-top:15px;
+}
+
+#chat-form input{
+  flex:1;
+  padding:12px;
+  border-radius:25px;
+  border:1px solid #00f0ff;
+  background:rgba(0,0,0,0.6);
+  color:white;
+  outline:none;
+}
+
+#chat-form button{
+  padding:12px 18px;
+  border:none;
+  border-radius:25px;
+  background:#00f0ff;
+  color:black;
+  font-weight:bold;
+  cursor:pointer;
+}
+
+/* ===== BACK ===== */
+.back{
+  z-index:5;
+  margin-top:15px;
+  color:#00f0ff;
+  text-decoration:none;
+}
+
+/* ===== ANIMATIONS ===== */
 @keyframes starsFlow{
   from { background-position:0 0; }
   to { background-position:200% 200%; }
@@ -144,91 +229,41 @@ body, html {
   to { transform:scale(1.2); }
 }
 
-/* titre */
-h2{
-  position:absolute;
-  top:30px;
-  z-index:5;
-  color:#00f0ff;
-  text-shadow:0 0 20px #00ffff;
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px){
+
+  h2{
+    font-size:1.1rem;
+  }
+
+  #chat-box{
+    height:65vh;
+    padding:12px;
+  }
+
+  .message{
+    font-size:0.85rem;
+    max-width:85%;
+  }
+
+  #chat-form{
+    flex-direction:column;
+  }
+
+  #chat-form button{
+    width:100%;
+  }
 }
 
-/* chat */
-#chat-box{
-  position:relative;
-  z-index:5;
-  width:90%;
-  max-width:900px;
-  height:60%;
-  overflow-y:auto;
-  background:rgba(0,0,0,0.65);
-  border-radius:20px;
-  padding:20px;
-  box-shadow:0 0 20px #00f0ff;
-}
+@media (max-width: 480px){
 
-.message{
-  padding:12px 18px;
-  margin:10px 0;
-  border-radius:20px;
-  max-width:70%;
-  word-wrap: break-word;
-}
+  #chat-box{
+    height:70vh;
+  }
 
-.mine{
-  background:#00f0ff;
-  color:black;
-  margin-left:auto;
-  border-bottom-right-radius:5px;
-}
-
-.theirs{
-  background:#222;
-  color:white;
-  margin-right:auto;
-  border-bottom-left-radius:5px;
-}
-
-/* form */
-#chat-form{
-  z-index:5;
-  width:90%;
-  max-width:900px;
-  display:flex;
-  gap:10px;
-  margin-top:20px;
-}
-
-#chat-form input{
-  flex:1;
-  padding:15px;
-  border-radius:25px;
-  border:1px solid #00f0ff;
-  background:rgba(0,0,0,0.6);
-  color:white;
-  outline:none;
-}
-
-#chat-form button{
-  padding:15px 25px;
-  border:none;
-  border-radius:25px;
-  background:#00f0ff;
-  color:black;
-  font-weight:bold;
-  cursor:pointer;
-}
-
-#chat-form button:hover{
-  background:#00c0cc;
-  color:white;
-}
-
-.back{
-  z-index:5;
-  margin-top:20px;
-  color:#00f0ff;
-  text-decoration:none;
+  .message{
+    font-size:0.8rem;
+  }
 }
 </style>
 </head>
