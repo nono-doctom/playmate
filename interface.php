@@ -1,6 +1,6 @@
 <?php
 // ================== SESSION ==================
-// Démarre la session pour savoir si l'utilisateur est connecté
+// Démarre la session pour savoir si l'utilisateur 
 if (session_status() == PHP_SESSION_NONE) session_start();
 
 // On vérifie que l'utilisateur est connecté
