@@ -1,78 +1,85 @@
 <?php
+
+// Démarre la session si elle n'est pas déjà active
 if (session_status() == PHP_SESSION_NONE) session_start();
 
+// Sécurité : fonctions d'authentification
 require_once 'auth.php';
-requireLogin();
+requireLogin(); // bloque l'accès si non connecté
+
 require_once 'db.php';
 
+// Récupération de l'ID utilisateur connecté
 $id = getUserId();
 
+
 /* =========================
-   Récupérer infos utilisateur
+   UTILISATEUR
 ========================= */
-$stmt = $conn->prepare("
-    SELECT *
-    FROM Utilisateur
-    WHERE id_user = ?
-");
+
+// On récupère toutes les infos de l'utilisateur
+$stmt = $conn->prepare("SELECT * FROM Utilisateur WHERE id_user = ?");
 $stmt->bind_param("i", $id);
 $stmt->execute();
 $user = $stmt->get_result()->fetch_assoc();
 
+
 /* =========================
-   plateforme user
+   PLATEFORME UTILISATEUR
 ========================= */
+
+// On récupère la plateforme liée à l'utilisateur
 $stmtPlatUser = $conn->prepare("
     SELECT id_plateforme
     FROM utiliser
     WHERE id_user=?
 ");
+
 $stmtPlatUser->bind_param("i", $id);
 $stmtPlatUser->execute();
 $resPlatUser = $stmtPlatUser->get_result();
 $userPlat = $resPlatUser->fetch_assoc();
+
+// Si aucune plateforme trouvée → valeur par défaut = 1
 $userPlatId = $userPlat['id_plateforme'] ?? 1;
 
 
 /* =========================
-   âge
+   AGE + DATE DE NAISSANCE
 ========================= */
+
 $age = null;
-$year = '';
-$month = '';
-$day = '';
+$year = $month = $day = '';
 
-if (
-    !empty($user['date_naissance']) &&
-    $user['date_naissance'] != '0000-00-00'
-){
-    list($year,$month,$day)=explode('-', $user['date_naissance']);
+// Si la date existe et n'est pas vide
+if (!empty($user['date_naissance']) && $user['date_naissance'] != '0000-00-00') {
 
+    // On découpe la date (YYYY-MM-DD)
+    list($year, $month, $day) = explode('-', $user['date_naissance']);
+
+    // Calcul de l'âge avec DateTime
     $birthDate = new DateTime($user['date_naissance']);
     $today = new DateTime();
-
     $age = $today->diff($birthDate)->y;
 }
 
 
 /* =========================
-   liste jeux
+   LISTE DES JEUX
 ========================= */
+
 $gamesList = [];
 
-$result = $conn->query("
-    SELECT id_jeu, nom
-    FROM jeu
-    ORDER BY nom ASC
-");
+// On récupère tous les jeux triés par ordre alphabétique
+$result = $conn->query("SELECT id_jeu, nom FROM jeu ORDER BY nom ASC");
 
-while($row = $result->fetch_assoc()){
+while ($row = $result->fetch_assoc()) {
     $gamesList[] = $row;
 }
 
 
 /* =========================
-   jeux user
+   JEUX DE L'UTILISATEUR
 ========================= */
 
 $userjeu = [];
@@ -88,25 +95,28 @@ $stmt->bind_param("i", $id);
 $stmt->execute();
 $result = $stmt->get_result();
 
-while($r = $result->fetch_assoc()){
+while ($r = $result->fetch_assoc()) {
     $userjeu[] = $r['nom'];
 }
 
 
 /* =========================
-   personnages
+   PERSONNAGES (statique)
 ========================= */
+
+// Liste définie manuellement (pas en base de données)
 $personnages = [
-    ["nom"=>"Une Lionnette","desc"=>"Je tryhard ici c'est la victoire"],
-    ["nom"=>"Un Pinguin","desc"=>"J'aime glisser et m'amuser sur les jeux"],
-    ["nom"=>"Un Pijaune","desc"=>"Je dépense beaucoup dans les jeux"],
-    ["nom"=>"Un Chatou","desc"=>"Je cherche l’amour dans les jeux"]
+    ["nom" => "Une Lionnette", "desc" => "Je tryhard ici c'est la victoire"],
+    ["nom" => "Un Pinguin", "desc" => "J'aime glisser et m'amuser sur les jeux"],
+    ["nom" => "Un Pijaune", "desc" => "Je dépense beaucoup dans les jeux"],
+    ["nom" => "Un Chatou", "desc" => "Je cherche l’amour dans les jeux"]
 ];
 
 
 /* =========================
-   humeurs
+   HUMEURS
 ========================= */
+
 $humeurs = [
     "Joueur sérieux",
     "Relax",
@@ -117,19 +127,34 @@ $humeurs = [
 
 
 /* =========================
-   plateformes
+   PLATEFORMES
 ========================= */
+
 $plateformes = [];
 
-$res = $conn->query("
-    SELECT id_plateforme, libelle
-    FROM plateforme
-    ORDER BY libelle ASC
-");
+// Récupère toutes les plateformes disponibles
+$res = $conn->query("SELECT id_plateforme, libelle FROM plateforme ORDER BY libelle ASC");
 
-while($r = $res->fetch_assoc()){
+while ($r = $res->fetch_assoc()) {
     $plateformes[] = $r;
 }
+
+
+/* =========================
+   PHOTO UTILISATEUR
+========================= */
+
+// On récupère la photo stockée en base
+$photo = $user['photo'] ?? '';
+
+// Si la photo existe déjà dans uploads/
+if ($photo && str_starts_with($photo, 'uploads/')) {
+    $photoUrl = $photo;
+} else {
+    // Sinon on ajoute le chemin uploads/
+    $photoUrl = "uploads/" . $photo;
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -137,6 +162,9 @@ while($r = $res->fetch_assoc()){
 <head>
 <meta charset="UTF-8">
 <title>Mon profil - PlayMate</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 
 <style>
     /* =========================
@@ -348,200 +376,162 @@ body, html {
   color: black !important;
 }
 /* ===================== RESPONSIVE ===================== */
+/* =========================
+   RESPONSIVE PROFIL FORM FIX
+========================= */
 
-/* TABLETTE + PETIT ÉCRAN */
+/* TABLETTE */
 @media screen and (max-width: 1024px) {
 
-  .main-content {
-    margin-left: 0;
-    padding: 15px;
-  }
+.form-container {
+  max-width: 500px;
+  padding: 30px 20px;
+}
 
-  .sidebar {
-    width: 240px;
-  }
-
-  .profil-card,
-  .matches-page .card,
-  .interface-page .card {
-    width: 90%;
-    max-width: 500px;
-  }
+.personnages {
+  grid-template-columns: 1fr 1fr;
+}
 }
 
 /* MOBILE */
 @media screen and (max-width: 768px) {
 
-  /* Sidebar passe en haut */
-  .sidebar {
-    position: relative;
-    width: 100%;
-    height: auto;
-    flex-direction: row;
-    justify-content: center;
-    flex-wrap: wrap;
-    padding: 10px;
-  }
-
-  .main-content {
-    margin-left: 0;
-    padding: 10px;
-  }
-
-  /* TITRES */
-  body.home-page .main-title {
-    font-size: 2rem;
-    top: 10px;
-  }
-
-  .interface-title {
-    font-size: 1.6rem;
-    position: relative;
-    top: 0;
-    left: 0;
-    transform: none;
-    margin: 10px 0;
-  }
-
-  /* CARDS */
-  .card {
-    width: 95%;
-    padding: 15px;
-  }
-
-  .profil-card {
-    width: 95%;
-    padding: 20px;
-  }
-
-  /* TEXTE */
-  .text-container h1 {
-    font-size: 1.4rem;
-  }
-
-  .text-container p {
-    font-size: 1rem;
-  }
-
-  /* BOUTONS */
-  .btn,
-  .button-slide,
-  .wp-block-button__link {
-    font-size: 0.9rem;
-    padding: 10px 18px;
-  }
-
-  /* BACKGROUND FIX */
-  .interface-page,
-  .matches-page,
-  .img-background {
-    background-position: center;
-    background-size: cover;
-  }
+body, html {
+  font-size: 14px;
 }
 
-/* PETITS TÉLÉPHONES */
+.form-container {
+  width: 95%;
+  padding: 25px 15px;
+  border-radius: 15px;
+}
+
+/* DATE FLEX QUI CASSE MOINS */
+.date-wrapper {
+  flex-direction: column;
+  gap: 8px;
+}
+
+.date-select {
+  width: 100%;
+  flex: unset;
+}
+
+/* PERSONNAGES -> 1 colonne */
+.personnages {
+  grid-template-columns: 1fr;
+}
+
+/* PHOTO */
+#photoBox img {
+  width: 90px;
+}
+
+/* TITRE */
+h1 {
+  font-size: 1.5rem;
+}
+
+/* BOUTONS PLUS LISIBLES */
+.form-button {
+  font-size: 0.95rem;
+  padding: 10px;
+}
+}
+
+/* PETIT MOBILE */
 @media screen and (max-width: 480px) {
 
-  .sidebar {
-    flex-direction: column;
-    align-items: center;
-  }
+.form-container {
+  width: 98%;
+  padding: 20px 12px;
+}
 
-  .btn {
-    width: 100%;
-    text-align: center;
-  }
+h1 {
+  font-size: 1.3rem;
+}
 
-  .card {
-    width: 98%;
-  }
+.form-input,
+.form-select,
+.form-textarea {
+  font-size: 0.9rem;
+  padding: 10px;
+}
 
-  .profil-card {
-    width: 98%;
-  }
+.personnage-content {
+  padding: 10px;
+}
+
+.personnage-content img {
+  width: 55px;
+}
 }
 </style>
-
-<link rel="stylesheet"
-href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css"/>
-
-<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 </head>
 
 <body class="profil-form-page">
 
-<form
-class="form-container"
-id="profilForm"
-enctype="multipart/form-data"
->
+<form class="form-container" id="profilForm" enctype="multipart/form-data">
 
 <h1>Mon profil</h1>
 
-<!-- DATE -->
+<!-- Champ caché : indique si l'utilisateur veut supprimer la photo -->
+<input type="hidden" name="delete_photo" id="delete_photo" value="0">
+
+
+<!-- PSEUDO -->
+<label>Pseudo</label>
+<input type="text" name="pseudo" class="form-input"
+value="<?= htmlspecialchars($user['pseudo'] ?? '') ?>">
+
+
+<!-- DATE DE NAISSANCE -->
 <label>Date de naissance</label>
 
 <div class="date-wrapper">
 
+<!-- JOUR -->
 <select name="day" id="day" class="date-select day-select">
 <option value="">Jour</option>
 <?php for($d=1;$d<=31;$d++): ?>
-<option
-value="<?= str_pad($d,2,'0',STR_PAD_LEFT) ?>"
-<?= $day == str_pad($d,2,'0',STR_PAD_LEFT) ? 'selected' : '' ?>
->
+<option value="<?= str_pad($d,2,'0',STR_PAD_LEFT) ?>"
+<?= $day == str_pad($d,2,'0',STR_PAD_LEFT) ? 'selected' : '' ?>>
 <?= $d ?>
 </option>
 <?php endfor; ?>
 </select>
 
-
+<!-- MOIS -->
 <select name="month" id="month" class="date-select month-select">
 <option value="">Mois</option>
-
 <?php
-$months = [
-'Janvier','Février','Mars','Avril','Mai','Juin',
-'Juillet','Août','Septembre','Octobre','Novembre','Décembre'
-];
+$months = ['Janvier','Février','Mars','Avril','Mai','Juin',
+'Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
-for($m=1;$m<=12;$m++):
-?>
-
-<option
-value="<?= str_pad($m,2,'0',STR_PAD_LEFT) ?>"
-<?= $month == str_pad($m,2,'0',STR_PAD_LEFT) ? 'selected' : '' ?>
->
+for($m=1;$m<=12;$m++): ?>
+<option value="<?= str_pad($m,2,'0',STR_PAD_LEFT) ?>"
+<?= $month == str_pad($m,2,'0',STR_PAD_LEFT) ? 'selected' : '' ?>>
 <?= $months[$m-1] ?>
 </option>
-
 <?php endfor; ?>
 </select>
 
-
+<!-- ANNÉE (limite : 18 ans minimum) -->
 <select name="year" id="year" class="date-select year-select">
 <option value="">Année</option>
-
 <?php
-$maxYear = date('Y') - 18;
-
-for($y=$maxYear; $y>=1920; $y--):
-?>
-
-<option
-value="<?= $y ?>"
-<?= $year == $y ? 'selected' : '' ?>
->
+$maxYear = date('Y') - 18; // interdit les -18 ans
+for($y=$maxYear; $y>=1920; $y--): ?>
+<option value="<?= $y ?>" <?= $year == $y ? 'selected' : '' ?>>
 <?= $y ?>
 </option>
-
 <?php endfor; ?>
 </select>
 
 </div>
 
 
+<!-- AFFICHAGE DE L'ÂGE -->
 <div class="result" id="ageResult">
 <?php if ($age !== null): ?>
 Votre âge est de <strong><?= $age ?> ans</strong>
@@ -549,237 +539,230 @@ Votre âge est de <strong><?= $age ?> ans</strong>
 </div>
 
 
-<!-- PHOTO -->
-<label>Photo de profil</label>
+<!-- PHOTO PROFIL -->
+<label>Photo</label>
 
-<?php if(!empty($user['photo'])): ?>
-<div style="text-align:center;margin-bottom:15px;" id="photoBox">
-
-
+<?php if(!empty($photoUrl)): ?>
+<!-- Photo actuelle -->
+<div id="photoBox">
+    <img src="<?= htmlspecialchars($photoUrl) ?>" width="120" style="border-radius:50%;">
 </div>
 <?php endif; ?>
 
-<input
-type="file"
-name="photo"
-accept="image/*"
-class="form-select"
->
+<!-- Upload nouvelle photo -->
+<input type="file" name="photo" accept="image/*" class="form-select">
 
-<img
-id="preview"
-width="150"
-style="display:none; border-radius:50%; margin-top:15px;"
->
+<!-- Preview avant upload -->
+<img id="preview" width="150"
+style="display:none; border-radius:50%; margin-top:15px;">
+
+<!-- Bouton suppression photo -->
+<button type="button" id="deletePhoto" class="form-button" style="margin-top:10px;">
+Supprimer la photo
+</button>
 
 
-    <button type="button" id="deletePhoto" class="form-button" style="margin-top:10px;">
-        Supprimer la photo
-    </button>
-
-<!-- Plateforme -->
+<!-- PLATEFORME -->
 <label>Plateforme</label>
 <select name="platform" class="form-select">
 <?php foreach($plateformes as $p): ?>
-<option
-value="<?= $p['id_plateforme'] ?>"
-<?= $userPlatId == $p['id_plateforme'] ? 'selected' : '' ?>
->
+<option value="<?= $p['id_plateforme'] ?>"
+<?= $userPlatId == $p['id_plateforme'] ? 'selected' : '' ?>>
 <?= htmlspecialchars($p['libelle']) ?>
 </option>
 <?php endforeach; ?>
 </select>
 
 
-<!-- Jeux -->
+<!-- JEUX FAVORIS (multi-select) -->
 <label>Jeux préférés</label>
 <select id="jeu" name="jeu[]" multiple class="form-select">
 <?php foreach($gamesList as $game): ?>
-<option
-value="<?= htmlspecialchars($game['nom']) ?>"
-<?= in_array($game['nom'],$userjeu)?'selected':'' ?>
->
+<option value="<?= htmlspecialchars($game['nom']) ?>"
+<?= in_array($game['nom'],$userjeu) ? 'selected' : '' ?>>
 <?= htmlspecialchars($game['nom']) ?>
 </option>
 <?php endforeach; ?>
 </select>
 
 
-<!-- humeur -->
+<!-- HUMEUR -->
 <label>Humeur</label>
 <select name="humeur" class="form-select">
 <?php foreach($humeurs as $h): ?>
-<option
-<?= ($user['humeur'] ?? '') === $h ? 'selected' : '' ?>
->
+<option <?= ($user['humeur'] ?? '') === $h ? 'selected' : '' ?>>
 <?= $h ?>
 </option>
 <?php endforeach; ?>
 </select>
 
 
-<!-- bio -->
+<!-- BIO -->
 <label>Bio</label>
-<textarea name="bio" class="form-textarea"><?= htmlspecialchars($user['bio'] ?? '') ?></textarea>
+<textarea name="bio" class="form-textarea">
+<?= htmlspecialchars($user['bio'] ?? '') ?>
+</textarea>
 
 
-<!-- personnages -->
+<!-- PERSONNAGE -->
 <label>Choisis ton personnage</label>
 
 <div class="personnages">
 <?php foreach($personnages as $p): ?>
-
 <label class="personnage-card">
 
-<input
-type="radio"
-name="personnage"
+<!-- Radio = un seul personnage possible -->
+<input type="radio" name="personnage"
 value="<?= $p['nom'] ?>"
-<?= ($user['nom_personnage'] ?? '') === $p['nom'] ? 'checked' : '' ?>
->
+<?= ($user['nom_personnage'] ?? '') === $p['nom'] ? 'checked' : '' ?>>
 
 <div class="personnage-content">
-<img src="personnages/<?= $p['nom'] ?>.png">
-
-<div><?= $p['nom'] ?></div>
-
-<div class="personnage-desc">
-<?= htmlspecialchars($p['desc']) ?>
-</div>
+    <img src="personnages/<?= $p['nom'] ?>.png">
+    <div><?= $p['nom'] ?></div>
+    <div><?= htmlspecialchars($p['desc']) ?></div>
 </div>
 
 </label>
-
 <?php endforeach; ?>
 </div>
 
 
-<button type="submit" class="form-button">
-Mettre à jour
-</button>
+<!-- SUBMIT -->
+<button type="submit" class="form-button">Mettre à jour</button>
 
-<div id="message"></div>
 
-<div style="text-align:center;">
-<a href="interface.php" style="color:#00ffff;">
-Trouver des joueurs
-</a>
+<!-- NAVIGATION -->
+<div style="text-align:center; margin-top:10px;">
+    <a href="interface.php" style="color:#00ffff;">
+        Trouver des joueurs
+    </a>
 </div>
+
+
+<!-- MESSAGE AJAX -->
+<div id="message"></div>
 
 </form>
 
-
 <script>
+
+/* DOMContentLoaded */
+// Attendre que toute la page soit chargée avant d'exécuter le JS
 document.addEventListener('DOMContentLoaded', () => {
-    new Choices('#jeu',{
-        removeItemButton:true,
-        placeholderValue:'Choisis tes jeux...',
-        searchPlaceholderValue:'Rechercher un jeu...',
-        itemSelectText:''
-    });
+
+    // Initialise le plugin Choices.js sur le select #jeu
+    // Permet de rendre le select plus stylé + multi-sélection avec suppression
+    new Choices('#jeu', { removeItemButton: true });
+
 });
 
 
-function calculateAge(){
-    const day=document.getElementById('day').value;
-    const month=document.getElementById('month').value;
-    const year=document.getElementById('year').value;
+/* PREVIEW IMAGE */
+// Quand l'utilisateur choisit une image dans l'input file
+document.querySelector('input[name="photo"]')?.addEventListener('change', function (e) {
 
-    const resultDiv=document.getElementById('ageResult');
-
-    if(day && month && year){
-
-        const birthDate=new Date(year, month-1, day);
-        const today=new Date();
-
-        let age=today.getFullYear()-birthDate.getFullYear();
-
-        const m=today.getMonth()-birthDate.getMonth();
-
-        if(m < 0 || (m===0 && today.getDate()<birthDate.getDate())){
-            age--;
-        }
-
-        if(age < 18){
-            resultDiv.innerHTML =
-            "<span style='color:red'>Tu dois avoir au moins 18 ans</span>";
-        } else {
-            resultDiv.innerHTML =
-            `Votre âge est de <strong>${age} ans</strong>`;
-        }
-
-    } else {
-        resultDiv.innerHTML='';
-    }
-}
-
-['day','month','year'].forEach(id =>
-document.getElementById(id)
-.addEventListener('change', calculateAge)
-);
-
-
-/* aperçu image */
-const photoInput = document.querySelector('input[name="photo"]');
-
-photoInput?.addEventListener('change', function(e){
-
+    // On récupère le premier fichier sélectionné
     const file = e.target.files[0];
 
-    if(file){
+    if (file) {
+
+        // FileReader permet de lire un fichier local (image ici)
         const reader = new FileReader();
 
-        reader.onload = function(event){
-            const img =
-            document.getElementById('preview');
+        // Quand la lecture du fichier est terminée
+        reader.onload = e => {
 
-            img.src = event.target.result;
+            // On récupère l'élément img de preview
+            const img = document.getElementById('preview');
+
+            // On met l'image choisie en source (base64)
+            img.src = e.target.result;
+
+            // On affiche l'image (si elle était cachée)
             img.style.display = "block";
-        }
+        };
 
+        // Lecture du fichier en DataURL (format image affichable dans src)
         reader.readAsDataURL(file);
     }
 });
-/* =========================
-   SUPPRIMER PHOTO
-========================= */
+
+
+/* DELETE PHOTO */
+// On récupère le bouton avec l'id "deletePhoto" et on ajoute un événement click
 document.getElementById('deletePhoto')?.addEventListener('click', function () {
 
-    if(!confirm("Supprimer la photo ?")) return;
+// On demande confirmation à l'utilisateur avant suppression
+if (!confirm("Supprimer la photo ?")) return;
 
-    fetch('deletePhoto.php', {
-        method: 'POST'
-    })
-    .then(res => res.json())
-    .then(data => {
+// On envoie une requête POST au serveur pour supprimer la photo
+fetch('deletePhoto.php', { method: 'POST' })
 
-        if(data.success){
-            const box = document.getElementById('photoBox');
-            if(box) box.remove();
-        } else {
-            alert(data.error);
+// On transforme la réponse en JSON
+.then(r => r.json())
+
+// On traite les données retournées par le serveur
+.then(data => {
+
+    // Si la suppression a réussi côté serveur
+    if (data.success) {
+
+        // On supprime visuellement le bloc contenant la photo
+        document.getElementById('photoBox')?.remove();
+
+        // On récupère l'élément de prévisualisation de l'image
+        const preview = document.getElementById('preview');
+
+        if (preview) {
+            // On masque l'image
+            preview.style.display = "none";
+
+            // On vide la source de l'image
+            preview.src = "";
         }
 
-    });
+        // On met un champ caché à 1 pour indiquer que la photo doit être supprimée
+        document.getElementById('delete_photo').value = "1";
+
+    } else {
+        // Si erreur côté serveur, on affiche un message
+        alert(data.error || "Erreur");
+    }
 
 });
 
-document.getElementById('profilForm')
-.addEventListener('submit', function(e){
+});
 
-    e.preventDefault();
 
-    fetch('updateProfil.php',{
-        method:'POST',
-        body:new FormData(this)
-    })
-    .then(res=>res.json())
-    .then(data=>{
-        document.getElementById('message').textContent =
-        data.success
-        ? "Profil mis à jour"
-        : "Erreur : " + data.error;
-    });
+/* SUBMIT */
+// On écoute la soumission du formulaire "profilForm"
+document.getElementById('profilForm').addEventListener('submit', function (e) {
+
+// On empêche le rechargement de la page
+e.preventDefault();
+
+// On envoie le formulaire en AJAX (sans recharger la page)
+fetch('updateProfil.php', {
+    method: 'POST',
+
+    // FormData récupère automatiquement tous les champs du formulaire
+    body: new FormData(this)
+})
+
+// On convertit la réponse en JSON
+.then(r => r.json())
+
+// On traite la réponse du serveur
+.then(data => {
+
+    // On affiche un message dans l'élément "message"
+    document.getElementById('message').textContent =
+        data.success ? "Profil mis à jour" : ("Erreur : " + data.error);
+
+    // On réinitialise le flag de suppression de photo
+    document.getElementById('delete_photo').value = "0";
+});
+
 });
 </script>
 
