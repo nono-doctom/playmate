@@ -1,145 +1,152 @@
 <?php
+// Démarre la session utilisateur (nécessaire pour récupérer l'utilisateur connecté)
 session_start();
-include 'db.php';
-require_once 'auth.php';
 
+// Fichiers nécessaires : sécurité + connexion DB
+require_once 'auth.php';
+require_once 'db.php';
+
+// On renvoie du JSON (utilisé par fetch() côté JS)
 header('Content-Type: application/json');
-ini_set('display_errors', 0);
-error_reporting(E_ALL);
 
 try {
+
+    /* =========================
+       RÉCUPÉRATION UTILISATEUR
+    ========================= */
+
+    // Récupère l'ID de l'utilisateur connecté
     $id = getUserId();
 
+    // Sécurité : si pas connecté -> erreur
     if (!$id) {
-        throw new Exception("Utilisateur inexistant");
+        throw new Exception("Utilisateur non connecté");
     }
 
     /* =========================
-       récupérer ancienne photo
+       RÉCUPÉRATION FORMULAIRE
     ========================= */
-    $stmtPhoto = mysqli_prepare($conn,"
-        SELECT photo
-        FROM Utilisateur
-        WHERE id_user=?
-    ");
 
-    mysqli_stmt_bind_param($stmtPhoto,"i",$id);
-    mysqli_stmt_execute($stmtPhoto);
+    // Pseudo utilisateur (nouveau champ ajouté)
+    $pseudo = $_POST['pseudo'] ?? null;
 
-    $resPhoto = mysqli_stmt_get_result($stmtPhoto);
-    $user = mysqli_fetch_assoc($resPhoto);
-
-    $photoPath = $user['photo'] ?? null;
-
-
-    /* =========================
-       upload nouvelle photo
-    ========================= */
-    if(
-        isset($_FILES['photo']) &&
-        $_FILES['photo']['error'] == 0
-    ){
-
-        $allowed = [
-            'image/jpeg',
-            'image/png',
-            'image/jpg'
-        ];
-
-        if(!in_array($_FILES['photo']['type'],$allowed)){
-            throw new Exception("Format image invalide");
-        }
-
-        if($_FILES['photo']['size'] > 2000000){
-            throw new Exception("Image trop lourde (max 2Mo)");
-        }
-
-        $uploadDir = "uploads/";
-
-        if(!is_dir($uploadDir)){
-            mkdir($uploadDir,0777,true);
-        }
-
-        $fileName =
-            time() . "_" .
-            basename($_FILES['photo']['name']);
-
-        $photoPath =
-            $uploadDir . $fileName;
-
-        move_uploaded_file(
-            $_FILES['photo']['tmp_name'],
-            $photoPath
-        );
-    }
-
-
-    /* =========================
-       récupérer données form
-    ========================= */
+    // Date de naissance (séparée en 3 selects)
     $day = $_POST['day'] ?? null;
     $month = $_POST['month'] ?? null;
     $year = $_POST['year'] ?? null;
 
-    $bio = $_POST['bio'] ?? null;
-    $humeur = $_POST['humeur'] ?? null;
+    // Infos profil
+    $bio = $_POST['bio'] ?? '';
+    $humeur = $_POST['humeur'] ?? '';
     $personnageNom = $_POST['personnage'] ?? null;
 
+    // Jeux sélectionnés (tableau multiple select)
     $jeux = $_POST['jeu'] ?? [];
+
+    // Plateforme choisie
     $plateforme = $_POST['platform'] ?? 1;
 
-
     /* =========================
-       date naissance
+       CONSTRUCTION DATE NAISSANCE
     ========================= */
-    $date = null;
 
+    // Si les 3 champs sont remplis on crée une date SQL
+    $date = null;
     if ($day && $month && $year) {
         $date = "$year-$month-$day";
     }
 
+    /* =========================
+       RÉCUPÉRATION PHOTO EXISTANTE
+    ========================= */
+
+    // On récupère l'ancienne photo pour éviter de la perdre si pas de nouvelle image
+    $stmt = $conn->prepare("SELECT photo FROM Utilisateur WHERE id_user=?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $user = $stmt->get_result()->fetch_assoc();
+
+    $photoPath = $user['photo'] ?? null;
 
     /* =========================
-       vérifier personnage
+       UPLOAD PHOTO (SI FOURNIE)
     ========================= */
-    $stmt = mysqli_prepare($conn,"
-        SELECT nom_personnage
-        FROM personnage
-        WHERE nom_personnage=?
-    ");
 
-    mysqli_stmt_bind_param(
-        $stmt,
-        "s",
-        $personnageNom
-    );
+    if (!empty($_FILES['photo']['name']) && $_FILES['photo']['error'] === 0) {
 
-    mysqli_stmt_execute($stmt);
+        // Types autorisés
+        $allowed = ['image/jpeg', 'image/png', 'image/jpg'];
 
-    $res = mysqli_stmt_get_result($stmt);
+        // Vérifie le format
+        if (!in_array($_FILES['photo']['type'], $allowed)) {
+            throw new Exception("Format image invalide");
+        }
 
-    if(!mysqli_fetch_assoc($res)){
-        throw new Exception("Personnage non trouvé");
+        // Vérifie taille max (10MB)
+        if ($_FILES['photo']['size'] > 10 * 1024 * 1024) {
+            throw new Exception("Image trop lourde (max 10MB)");
+        }
+
+        // Dossier upload
+        $uploadDir = "uploads/";
+
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+
+        // Nom unique du fichier
+        $fileName = time() . "_" . basename($_FILES['photo']['name']);
+
+        // Chemin final
+        $photoPath = $uploadDir . $fileName;
+
+        // Déplacement du fichier
+        if (!move_uploaded_file($_FILES['photo']['tmp_name'], $photoPath)) {
+            throw new Exception("Erreur upload image");
+        }
     }
 
+    /* =========================
+       VÉRIFICATION PERSONNAGE
+    ========================= */
+
+    // On vérifie que le personnage existe en base
+    if ($personnageNom) {
+
+        $stmt = $conn->prepare("
+            SELECT nom_personnage
+            FROM personnage
+            WHERE nom_personnage=?
+        ");
+
+        $stmt->bind_param("s", $personnageNom);
+        $stmt->execute();
+
+        if (!$stmt->get_result()->fetch_assoc()) {
+            throw new Exception("Personnage non trouvé");
+        }
+    }
 
     /* =========================
-       update utilisateur
+       UPDATE UTILISATEUR
     ========================= */
-    $stmt = mysqli_prepare($conn,"
+
+    // Mise à jour des infos principales du profil
+    $stmt = $conn->prepare("
         UPDATE Utilisateur
-        SET
-            date_naissance=?,
-            bio=?,
-            humeur=?,
-            nom_personnage=?,
-            photo=?
+        SET pseudo=?,              -- pseudo modifiable
+            date_naissance=?,      -- date naissance
+            bio=?,                 -- bio utilisateur
+            humeur=?,              -- humeur choisie
+            nom_personnage=?,      -- personnage choisi
+            photo=?                -- photo profil
         WHERE id_user=?
     ");
 
-    mysqli_stmt_bind_param(
-        $stmt,
-        "sssssi",
+    // Liaison des paramètres
+    $stmt->bind_param(
+        "ssssssi",
+        $pseudo,
         $date,
         $bio,
         $humeur,
@@ -148,139 +155,84 @@ try {
         $id
     );
 
-    mysqli_stmt_execute($stmt);
-
-
-    /* =========================
-       supprimer anciens jeux
-    ========================= */
-    $deleteJeux = mysqli_prepare($conn,"
-        DELETE FROM jouer
-        WHERE id_user=?
-    ");
-
-    mysqli_stmt_bind_param(
-        $deleteJeux,
-        "i",
-        $id
-    );
-
-    mysqli_stmt_execute($deleteJeux);
-
-
-    /* =========================
-       récupérer id plateforme
-    ========================= */
-    $stmtPlat = mysqli_prepare($conn,"
-        SELECT id_plateforme
-        FROM plateforme
-        WHERE id_plateforme=?
-    ");
-
-    mysqli_stmt_bind_param(
-        $stmtPlat,
-        "i",
-        $plateforme
-    );
-
-    mysqli_stmt_execute($stmtPlat);
-
-    $resPlat = mysqli_stmt_get_result($stmtPlat);
-
-    if($rowPlat = mysqli_fetch_assoc($resPlat)){
-        $id_plateforme = $rowPlat['id_plateforme'];
-    } else {
-        $id_plateforme = 1;
+    // Exécution + sécurité erreur
+    if (!$stmt->execute()) {
+        throw new Exception($stmt->error);
     }
 
-
     /* =========================
-       ajouter nouveaux jeux
+       JEUX : RESET + INSERT
     ========================= */
-    $stmtJeu = mysqli_prepare($conn,"
-        SELECT id_jeu
-        FROM jeu
-        WHERE nom=?
-    ");
 
-    $insertJeu = mysqli_prepare($conn,"
-        INSERT INTO jouer
-        (id_jeu,id_user,id_plateforme,nb_heure_joue)
+    // On supprime les anciens jeux de l'utilisateur
+    $stmt = $conn->prepare("DELETE FROM jouer WHERE id_user=?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+
+    // Récup id jeu par nom
+    $stmtJeu = $conn->prepare("SELECT id_jeu FROM jeu WHERE nom=?");
+
+    // Insertion relation user-jeu
+    $insertJeu = $conn->prepare("
+        INSERT INTO jouer (id_jeu, id_user, id_plateforme, nb_heure_joue)
         VALUES (?, ?, ?, 0)
     ");
 
-    foreach($jeux as $nomJeu){
+    // Parcours des jeux sélectionnés
+    foreach ($jeux as $nomJeu) {
 
-        mysqli_stmt_bind_param(
-            $stmtJeu,
-            "s",
-            $nomJeu
-        );
+        $stmtJeu->bind_param("s", $nomJeu);
+        $stmtJeu->execute();
+        $res = $stmtJeu->get_result();
 
-        mysqli_stmt_execute($stmtJeu);
-
-        $resJeu =
-            mysqli_stmt_get_result($stmtJeu);
-
-        if($row = mysqli_fetch_assoc($resJeu)){
+        if ($row = $res->fetch_assoc()) {
 
             $id_jeu = $row['id_jeu'];
 
-            mysqli_stmt_bind_param(
-                $insertJeu,
+            $insertJeu->bind_param(
                 "iii",
                 $id_jeu,
                 $id,
-                $id_plateforme
+                $plateforme
             );
 
-            mysqli_stmt_execute($insertJeu);
+            $insertJeu->execute();
         }
     }
 
+    /* =========================
+       PLATEFORME : RESET + INSERT
+    ========================= */
+
+    // Supprime ancienne plateforme liée à l'utilisateur
+    $stmt = $conn->prepare("DELETE FROM utiliser WHERE id_user=?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+
+    // Ajoute nouvelle plateforme
+    $stmt = $conn->prepare("
+        INSERT INTO utiliser (id_user, id_plateforme)
+        VALUES (?, ?)
+    ");
+    $stmt->bind_param("ii", $id, $plateforme);
+    $stmt->execute();
 
     /* =========================
-       update table utiliser
+       RÉPONSE SUCCESS
     ========================= */
-    $deletePlat = mysqli_prepare($conn,"
-        DELETE FROM utiliser
-        WHERE id_user=?
-    ");
-
-    mysqli_stmt_bind_param(
-        $deletePlat,
-        "i",
-        $id
-    );
-
-    mysqli_stmt_execute($deletePlat);
-
-
-    $insertPlat = mysqli_prepare($conn,"
-        INSERT INTO utiliser
-        (id_user,id_plateforme)
-        VALUES (?,?)
-    ");
-
-    mysqli_stmt_bind_param(
-        $insertPlat,
-        "ii",
-        $id,
-        $id_plateforme
-    );
-
-    mysqli_stmt_execute($insertPlat);
-
 
     echo json_encode([
-        "success"=>true
+        "success" => true
     ]);
 
 } catch (Exception $e) {
 
+    /* =========================
+       GESTION ERREUR
+    ========================= */
+
     echo json_encode([
-        "success"=>false,
-        "error"=>$e->getMessage()
+        "success" => false,
+        "error" => $e->getMessage()
     ]);
 }
-?>
