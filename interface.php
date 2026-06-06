@@ -1,6 +1,6 @@
 <?php
 // ================== SESSION ==================
-// Démarre la session pour savoir si l'uti 
+// Démarre la session pour savoir si l'utilisateur est connecté
 if (session_status() == PHP_SESSION_NONE) session_start();
 
 // On vérifie que l'utilisateur est connecté
@@ -242,19 +242,354 @@ function calculerCompatibilite($user1, $user2) {
 <title>Interface - PlayMate</title>
 <style>
 
-* { margin:0; padding:0; box-sizing:border-box; }
-html, body { width:100%; height:100%; font-family:Georgia, serif; color:white; }
-.interface-page { width:100%; min-height:100vh; background-image:url('jeux_video.png'); background-size:cover; background-position:center; padding-top:100px; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; position:relative; text-align:center; }
-.interface-page::before { content:""; position:absolute; inset:0; background:rgba(0,0,0,0.4); z-index:0; }
-.interface-title { position:fixed; top:40px; left:50%; transform:translateX(-50%); font-size:3rem; font-weight:bold; color:white; z-index:10; }
-.back-btn { position:fixed; top:10px; left:20px; z-index:11; padding:8px 15px; background:#00f0ff; color:black; text-decoration:none; border-radius:10px; font-weight:bold; }
-.back-btn:hover { background:#00c0cc; color:white; }
-.main-content { position:relative; z-index:1; width:100%; max-width:600px; padding:15px; text-align:center; }
-.card { background:rgba(17,17,17,0.8); border-radius:16px; padding:20px; margin:15px auto; box-shadow:0 0 15px rgba(0,255,255,0.2); color:white; }
-.btn { display:inline-block; padding:10px 20px; margin:10px; background:#00f0ff; color:black; text-decoration:none; border-radius:10px; transition:all 0.3s ease; }
-.btn:hover { background:#00c0cc; color:white; }
-.progress-bar { height:20px; border-radius:10px; background:#111; overflow:hidden; margin-top:10px; }
-.progress-fill { height:100%; background:linear-gradient(90deg,#00f0ff,#00c0cc); }</style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  min-height: 100%;
+  height: 100%;
+  font-family: Georgia, serif;
+  color: white;
+}
+
+/* =========================
+   PAGE BACKGROUND FIX MOBILE
+========================= */
+.interface-page {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+
+  position: relative;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+
+  padding: 100px 15px 40px;
+  text-align: center;
+
+  background-image: url('jeux_video.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* overlay */
+.interface-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 0;
+}
+
+/* contenu au-dessus */
+.interface-page > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* =========================
+   TITRE
+========================= */
+.interface-title {
+  position: fixed;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: clamp(1.5rem, 4vw, 3rem);
+  font-weight: bold;
+  color: white;
+  z-index: 10;
+}
+
+/* =========================
+   BACK BUTTON
+========================= */
+.back-btn {
+  position: fixed;
+  top: 10px;
+  left: 20px;
+  z-index: 11;
+
+  padding: 8px 15px;
+  background: #00f0ff;
+  color: black;
+  text-decoration: none;
+  border-radius: 10px;
+  font-weight: bold;
+}
+
+.back-btn:hover {
+  background: #00c0cc;
+  color: white;
+}
+
+/* =========================
+   CONTENT
+========================= */
+.main-content {
+  position: relative;
+  z-index: 1;
+
+  width: 100%;
+  max-width: 600px;
+
+  padding: 15px;
+  text-align: center;
+}
+
+/* =========================
+   CARD STYLE (GAMER / NETFLIX)
+========================= */
+.card {
+  background: rgba(17, 17, 17, 0.85);
+  border-radius: 16px;
+  padding: 20px;
+  margin: 15px auto;
+
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 0 30px rgba(0, 255, 255, 0.4);
+}
+
+/* =========================
+   BUTTONS
+========================= */
+.btn {
+  display: inline-block;
+  padding: 10px 20px;
+  margin: 10px;
+
+  background: #00f0ff;
+  color: black;
+
+  text-decoration: none;
+  border-radius: 10px;
+
+  transition: 0.3s;
+}
+
+.btn:hover {
+  background: #00c0cc;
+  color: white;
+}
+
+/* =========================
+   PROGRESS BAR
+========================= */
+.progress-bar {
+  height: 20px;
+  border-radius: 10px;
+  background: #111;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00f0ff, #00c0cc);
+}
+
+/* =========================
+   BASE RESET
+========================= */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  min-height: 100%;
+  font-family: Georgia, serif;
+  color: white;
+}
+
+/* =========================
+   PAGE BACKGROUND
+========================= */
+.interface-page {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  padding: 120px 20px 40px;
+  text-align: center;
+
+  background-image: url('jeux_video.png');
+  background-size: cover;
+  background-position: center;
+}
+
+/* overlay */
+.interface-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 0;
+}
+
+.interface-page > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* =========================
+   TITLE
+========================= */
+.interface-title {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: clamp(1.2rem, 3vw, 2.5rem);
+  text-align: center;
+  width: 100%;
+  padding: 0 10px;
+}
+
+/* =========================
+   BACK BUTTON
+========================= */
+.back-btn {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+
+  padding: 8px 12px;
+  font-size: 14px;
+
+  background: #00f0ff;
+  color: black;
+  text-decoration: none;
+  border-radius: 8px;
+}
+
+/* =========================
+   MAIN CONTENT
+========================= */
+.main-content {
+  width: 100%;
+  max-width: 650px;
+}
+
+/* =========================
+   CARD
+========================= */
+.card {
+  width: 100%;
+  background: rgba(17,17,17,0.85);
+  border-radius: 16px;
+  padding: 20px;
+  margin: 15px 0;
+
+  box-shadow: 0 0 20px rgba(0,255,255,0.2);
+}
+
+/* =========================
+   BUTTON
+========================= */
+.btn {
+  display: inline-block;
+  padding: 10px 16px;
+  margin: 8px;
+
+  background: #00f0ff;
+  color: black;
+
+  text-decoration: none;
+  border-radius: 10px;
+
+  font-size: 14px;
+}
+
+/* =========================
+   PROGRESS BAR
+========================= */
+.progress-bar {
+  height: 18px;
+  border-radius: 10px;
+  background: #111;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00f0ff, #00c0cc);
+}
+
+/* =========================
+   RESPONSIVE TABLET
+========================= */
+@media (max-width: 1024px) {
+
+  .main-content {
+    max-width: 90%;
+  }
+}
+
+/* =========================
+   MOBILE
+========================= */
+@media (max-width: 768px) {
+
+  .interface-page {
+    padding: 100px 10px 30px;
+  }
+
+  .card {
+    padding: 15px;
+  }
+
+  .btn {
+    display: block;
+    width: 100%;
+    margin: 10px 0;
+  }
+
+  .interface-title {
+    font-size: 1.4rem;
+    top: 15px;
+  }
+}
+
+/* =========================
+   SMALL PHONE
+========================= */
+@media (max-width: 480px) {
+
+  .card {
+    padding: 12px;
+  }
+
+  .back-btn {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  .interface-title {
+    font-size: 1.2rem;
+  }
+}
 </style>
 </head>
 

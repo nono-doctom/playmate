@@ -4,48 +4,84 @@ session_start();
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
+    /* =========================
+       CLEAN INPUTS
+    ========================= */
     $pseudo = trim($_POST['pseudo']);
     $email = trim($_POST['email']);
-    $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+    $plainPassword = $_POST['password'];
 
-    if ($pseudo === '' || $email === '' || $_POST['password'] === '') {
+    if ($pseudo === '' || $email === '' || $plainPassword === '') {
         $error = "Tous les champs sont obligatoires";
     } else {
 
-        // PERSONNAGE PAR DÉFAUT
+        /* =========================
+           HASH PASSWORD
+        ========================= */
+        $password = password_hash($plainPassword, PASSWORD_DEFAULT);
+
+        /* =========================
+           PERSONNAGE PAR DÉFAUT
+        ========================= */
         $defaultPersonnage = "Une Lionnette";
 
-        // 1. Vérifie si le personnage existe
-        $checkPerso = mysqli_query(
-            $conn,
-            "SELECT nom_personnage FROM personnage WHERE nom_personnage='$defaultPersonnage'"
-        );
+        // CHECK personnage existe
+        $stmt = $conn->prepare("
+            SELECT nom_personnage
+            FROM personnage
+            WHERE nom_personnage = ?
+        ");
+        $stmt->bind_param("s", $defaultPersonnage);
+        $stmt->execute();
+        $res = $stmt->get_result();
 
-        // 2. S’il n’existe pas → on le crée
-        if (mysqli_num_rows($checkPerso) === 0) {
-            mysqli_query(
-                $conn,
-                "INSERT INTO personnage (nom_personnage, description)
-                 VALUES ('$defaultPersonnage', 'Je tryhard ici c’est la victoire')"
-            );
+        // CREATE personnage si absent
+        if ($res->num_rows === 0) {
+
+            $stmt = $conn->prepare("
+                INSERT INTO personnage (nom_personnage, description)
+                VALUES (?, ?)
+            ");
+
+            $desc = "Je tryhard ici c’est la victoire";
+            $stmt->bind_param("ss", $defaultPersonnage, $desc);
+            $stmt->execute();
         }
 
-        // 3. Vérifie si email existe déjà
-        $checkUser = mysqli_query(
-            $conn,
-            "SELECT id_user FROM Utilisateur WHERE email='$email'"
-        );
+        /* =========================
+           CHECK EMAIL EXISTS
+        ========================= */
+        $stmt = $conn->prepare("
+            SELECT id_user
+            FROM Utilisateur
+            WHERE email = ?
+        ");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $res = $stmt->get_result();
 
-        if (mysqli_num_rows($checkUser) > 0) {
+        if ($res->num_rows > 0) {
             $error = "Email déjà utilisé";
         } else {
 
-            // 4. INSERT utilisateur avec personnage garanti existant
-            mysqli_query(
-                $conn,
-                "INSERT INTO Utilisateur (pseudo, email, mot_de_passe, nom_personnage)
-                 VALUES ('$pseudo', '$email', '$password', '$defaultPersonnage')"
+            /* =========================
+               INSERT USER
+            ========================= */
+            $stmt = $conn->prepare("
+                INSERT INTO Utilisateur
+                (pseudo, email, mot_de_passe, nom_personnage)
+                VALUES (?, ?, ?, ?)
+            ");
+
+            $stmt->bind_param(
+                "ssss",
+                $pseudo,
+                $email,
+                $password,
+                $defaultPersonnage
             );
+
+            $stmt->execute();
 
             header("Location: login.php");
             exit();
@@ -53,7 +89,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -131,117 +166,65 @@ body {
   margin-bottom: 10px;
 }
 /* ===================== RESPONSIVE ===================== */
+/* =====================
+   RESPONSIVE INSCRIPTION CLEAN
+===================== */
 
-/* TABLETTE + PETIT ÉCRAN */
+/* TABLETTE */
 @media screen and (max-width: 1024px) {
-
-  .main-content {
-    margin-left: 0;
-    padding: 15px;
-  }
-
-  .sidebar {
-    width: 240px;
-  }
-
-  .profil-card,
-  .matches-page .card,
-  .interface-page .card {
-    width: 90%;
-    max-width: 500px;
+  .form-container {
+    width: 380px;
   }
 }
 
 /* MOBILE */
 @media screen and (max-width: 768px) {
 
-  /* Sidebar passe en haut */
-  .sidebar {
-    position: relative;
-    width: 100%;
-    height: auto;
-    flex-direction: row;
-    justify-content: center;
-    flex-wrap: wrap;
-    padding: 10px;
-  }
-
-  .main-content {
-    margin-left: 0;
-    padding: 10px;
-  }
-
-  /* TITRES */
-  body.home-page .main-title {
-    font-size: 2rem;
-    top: 10px;
-  }
-
-  .interface-title {
-    font-size: 1.6rem;
-    position: relative;
-    top: 0;
-    left: 0;
-    transform: none;
-    margin: 10px 0;
-  }
-
-  /* CARDS */
-  .card {
-    width: 95%;
+  body {
     padding: 15px;
   }
 
-  .profil-card {
-    width: 95%;
-    padding: 20px;
+  .form-container {
+    width: 100%;
+    max-width: 380px;
+    padding: 25px;
+    border-radius: 14px;
   }
 
-  /* TEXTE */
-  .text-container h1 {
-    font-size: 1.4rem;
+  .form-title {
+    font-size: 1.5rem;
   }
 
-  .text-container p {
-    font-size: 1rem;
+  .form-input {
+    font-size: 0.95rem;
+    padding: 10px;
   }
 
-  /* BOUTONS */
-  .btn,
-  .button-slide,
-  .wp-block-button__link {
-    font-size: 0.9rem;
-    padding: 10px 18px;
-  }
-
-  /* BACKGROUND FIX */
-  .interface-page,
-  .matches-page,
-  .img-background {
-    background-position: center;
-    background-size: cover;
+  .form-button {
+    font-size: 0.95rem;
+    padding: 10px;
   }
 }
 
-/* PETITS TÉLÉPHONES */
+/* PETIT MOBILE */
 @media screen and (max-width: 480px) {
 
-  .sidebar {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .btn {
+  .form-container {
     width: 100%;
-    text-align: center;
+    max-width: 95%;
+    padding: 20px;
   }
 
-  .card {
-    width: 98%;
+  .form-title {
+    font-size: 1.3rem;
   }
 
-  .profil-card {
-    width: 98%;
+  .form-input {
+    font-size: 0.9rem;
+  }
+
+  .form-text {
+    font-size: 0.9rem;
   }
 }
 </style>

@@ -1,37 +1,34 @@
 <?php
-// Démarre la session utilisateur (nécessaire pour récupérer l'utilisateur connecté)
+// Démarre la session utilisateur (nécessaire pour récupérer l'utilisateur connecté).
 session_start();
 
-// Fichiers nécessaires : sécurité + connexion DB
+// Fichiers nécessaires : sécurité et la connexion DB.
 require_once 'auth.php';
 require_once 'db.php';
 
-// On renvoie du JSON (utilisé par fetch() côté JS)
+// On renvoie du JSON (utilisé par fetch() côté JS).
 header('Content-Type: application/json');
 
 try {
 
-    /* =========================
-       RÉCUPÉRATION UTILISATEUR
-    ========================= */
+    /* RÉCUPÉRATION UTILISATEUR */
 
-    // Récupère l'ID de l'utilisateur connecté
+    // Récupère l'ID de l'utilisateur connecté.
     $id = getUserId();
 
-    // Sécurité : si pas connecté -> erreur
+    // Sécurité : si pas connecté alors erreur.
     if (!$id) {
         throw new Exception("Utilisateur non connecté");
     }
 
-    /* =========================
-       RÉCUPÉRATION FORMULAIRE
-    ========================= */
+    /*RÉCUPÉRATION FORMULAIRE*/
 
-    // Pseudo utilisateur (nouveau champ ajouté)
+    // Pseudo utilisateur (nouveau champ ajouté).
     $pseudo = $_POST['pseudo'] ?? null;
 
     // Date de naissance (séparée en 3 selects)
-    $day = $_POST['day'] ?? null;
+    $day = $_POST['day'] ?? null;// Si "day" existe dans $_POST, on prend sa valeur
+// Sinon (si le champ n'est pas envoyé), on met null.
     $month = $_POST['month'] ?? null;
     $year = $_POST['year'] ?? null;
 
@@ -40,40 +37,43 @@ try {
     $humeur = $_POST['humeur'] ?? '';
     $personnageNom = $_POST['personnage'] ?? null;
 
-    // Jeux sélectionnés (tableau multiple select)
+    // Jeux sélectionnés (tableau multiple select).
     $jeux = $_POST['jeu'] ?? [];
 
-    // Plateforme choisie
+    // Plateforme choisie.
     $plateforme = $_POST['platform'] ?? 1;
 
-    /* =========================
-       CONSTRUCTION DATE NAISSANCE
-    ========================= */
 
-    // Si les 3 champs sont remplis on crée une date SQL
+    // Si les 3 champs sont remplis on crée une date SQL.
     $date = null;
     if ($day && $month && $year) {
         $date = "$year-$month-$day";
     }
 
-    /* =========================
-       RÉCUPÉRATION PHOTO EXISTANTE
-    ========================= */
+            // On récupère l'ancienne photo pour éviter de la perdre si pas de nouvelle image.
+        $stmt = $conn->prepare("SELECT photo FROM Utilisateur WHERE id_user=?");
+        // Prépare une requête SQL pour récupérer la photo de l'utilisateur dans la base.
 
-    // On récupère l'ancienne photo pour éviter de la perdre si pas de nouvelle image
-    $stmt = $conn->prepare("SELECT photo FROM Utilisateur WHERE id_user=?");
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
-    $user = $stmt->get_result()->fetch_assoc();
+        $stmt->bind_param("i", $id);
+        // Remplace le ? par l'id de l'utilisateur (i = integer).
 
-    $photoPath = $user['photo'] ?? null;
+        $stmt->execute();
+        // Exécute la requête SQL.
 
-    /* =========================
-       UPLOAD PHOTO (SI FOURNIE)
-    ========================= */
+        $user = $stmt->get_result()->fetch_assoc();
+        // Récupère le résultat sous forme de tableau associatif.
+        // Exemple : $user['photo'] contient le nom du fichier photo.
 
-    if (!empty($_FILES['photo']['name']) && $_FILES['photo']['error'] === 0) {
+        $photoPath = $user['photo'] ?? null;
+        // Si "photo" existe → on la récupère.
+        // Sinon alors on met null (aucune photo enregistrée).
 
+
+        if (!empty($_FILES['photo']['name']) && $_FILES['photo']['error'] === 0) {
+            // Vérifie si un fichier a été envoyé :
+            // - $_FILES['photo']['name'] != vide → un fichier a été sélectionné
+            // - error === 0 → aucune erreur pendant l’upload
+        }
         // Types autorisés
         $allowed = ['image/jpeg', 'image/png', 'image/jpg'];
 
@@ -199,10 +199,6 @@ try {
             $insertJeu->execute();
         }
     }
-
-    /* =========================
-       PLATEFORME : RESET + INSERT
-    ========================= */
 
     // Supprime ancienne plateforme liée à l'utilisateur
     $stmt = $conn->prepare("DELETE FROM utiliser WHERE id_user=?");

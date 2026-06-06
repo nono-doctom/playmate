@@ -1,42 +1,72 @@
 <?php
-if (session_status() == PHP_SESSION_NONE) session_start();
+
+session_start();
 
 require_once 'auth.php';
 requireLogin();
+
 require_once 'db.php';
 
-$id = getUserId();
-
+// On dit au navigateur que la réponse sera en JSON (pour fetch côté JS)
 header('Content-Type: application/json');
 
 try {
 
-    // récupérer ancienne photo
-    $stmt = $conn->prepare("SELECT photo FROM Utilisateur WHERE id_user = ?");
+    // Récupère l'ID de l'utilisateur connecté
+    $id = getUserId();
+
+    // Cherche la photo de l'utilisateur dans la base
+    $stmt = $conn->prepare("
+        SELECT photo
+        FROM Utilisateur
+        WHERE id_user = ?
+    ");
+
     $stmt->bind_param("i", $id);
     $stmt->execute();
+
     $res = $stmt->get_result();
     $user = $res->fetch_assoc();
 
-    if (!$user || empty($user['photo'])) {
-        echo json_encode(["success" => false, "error" => "Aucune photo"]);
-        exit;
+    // Si aucun utilisateur trouvé dans la base
+    if (!$user) {
+        throw new Exception("Utilisateur introuvable");
     }
 
-    $photoPath = $user['photo'];
+    // Récupère le chemin de la photo
+    $photo = $user['photo'];
 
-    // supprimer fichier serveur si existe
-    if (file_exists($photoPath)) {
-        unlink($photoPath);
+    // Si aucune photo enregistrée
+    if (empty($photo)) {
+        throw new Exception("Aucune photo enregistrée");
     }
 
-    // reset DB
-    $stmt = $conn->prepare("UPDATE Utilisateur SET photo = NULL WHERE id_user = ?");
+    // Supprime le fichier photo du serveur si il existe
+    if (file_exists($photo)) {
+        unlink($photo);
+    }
+
+    // Met à jour la base pour supprimer la référence de la photo
+    $stmt = $conn->prepare("
+        UPDATE Utilisateur
+        SET photo = NULL
+        WHERE id_user = ?
+    ");
+
     $stmt->bind_param("i", $id);
     $stmt->execute();
 
-    echo json_encode(["success" => true]);
+    // Réponse en cas de succès
+    echo json_encode([
+        "success" => true
+    ]);
 
 } catch (Exception $e) {
-    echo json_encode(["success" => false, "error" => $e->getMessage()]);
+
+    // Réponse en cas d'erreur
+    echo json_encode([
+        "success" => false,
+        "error" => $e->getMessage()
+    ]);
+
 }

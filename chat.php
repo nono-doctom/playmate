@@ -1,22 +1,33 @@
 <?php
-include 'db.php';
-session_start();
+include 'db.php'; // Connexion à la base de données ($conn).
+session_start();  // Démarre la session utilisateur.
 
+//  SÉCURITÉ : vérifier si l'utilisateur est connecté.
 if (!isset($_SESSION['user_id'])) {
+    // Si l'utilisateur n'est pas connecté on le redirige au login.
     header("Location: login.php");
     exit();
 }
 
+//  RÉCUPÉRATION DES ID UTILISATEURS
+
+// ID de l'utilisateur connecté (expéditeur)
 $user_id = (int)$_SESSION['user_id'];
+
+// ID du destinataire (récupéré dans l'URL chat.php?id="")
 $match_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
+// Si l'ID est invalide alors on bloque l'accès
 if ($match_id <= 0) {
     die("Utilisateur invalide");
 }
 
-/* =============================
-   VERIFIER LE MATCH
-============================= */
+/* 
+   VÉRIFICATION DU MATCH (sécurité du chat)
+   On vérifie que les deux utilisateurs se sont mutuellement likés
+   avant d'autoriser la conversation
+ */
+
 $sql = "
 SELECT *
 FROM Matcher m1
@@ -25,32 +36,44 @@ ON m1.id_user = m2.id_user_1
 AND m1.id_user_1 = m2.id_user
 WHERE m1.id_user = ?
 AND m1.id_user_1 = ?
-AND m1.avis='like'
-AND m2.avis='like'
+AND m1.avis = 'like'
+AND m2.avis = 'like'
 ";
 
-$stmt = mysqli_prepare($conn,$sql);
-mysqli_stmt_bind_param($stmt,"ii",$user_id,$match_id);
+// Prépare la requête pour éviter les injections SQL
+$stmt = mysqli_prepare($conn, $sql);
+
+// Remplace les ? par les vraies valeurs
+mysqli_stmt_bind_param($stmt, "ii", $user_id, $match_id);
+
+// Exécute la requête
 mysqli_stmt_execute($stmt);
+
+// Récupère le résultat
 $result = mysqli_stmt_get_result($stmt);
 
-if(mysqli_num_rows($result)==0){
+// Si aucun match trouvé alors l'accès refusé
+if (mysqli_num_rows($result) == 0) {
     die("Vous ne pouvez pas parler à cet utilisateur");
 }
 
+/* ENVOI DE MESSAGE Si le formulaire est envoyé (POST) */
 
-/* =============================
-   ENVOI MESSAGE
-============================= */
-if($_SERVER["REQUEST_METHOD"]==="POST" && !empty($_POST['message'])){
+if ($_SERVER["REQUEST_METHOD"] === "POST" && !empty($_POST['message'])) {
 
+    // Nettoie le message, supprime les espaces inutiles.
     $message = trim($_POST['message']);
 
-    $insert = mysqli_prepare($conn,"
-        INSERT INTO Message(contenu,id_user,id_user_1)
+    // Prépare l'insertion du message dans la base
+    $insert = mysqli_prepare($conn, "
+        INSERT INTO Message(contenu, id_user, id_user_1)
         VALUES(?,?,?)
     ");
 
+    // On lie les valeurs :
+    // s = string (message)
+    // i = integer (expéditeur)
+    // i = integer (destinataire)
     mysqli_stmt_bind_param(
         $insert,
         "sii",
@@ -59,24 +82,35 @@ if($_SERVER["REQUEST_METHOD"]==="POST" && !empty($_POST['message'])){
         $match_id
     );
 
+    // Exécute l'insertion en base
     mysqli_stmt_execute($insert);
 
-    header("Location: chat.php?id=".$match_id);
+    // Redirection vers la même page
+    // (évite le renvoi du message si F5)
+    header("Location: chat.php?id=" . $match_id);
     exit();
 }
 
+/*RÉCUPÉRATION DU PSEUDO DU CORRESPONDANT */
 
-/* récupérer pseudo */
-$getUser = mysqli_prepare($conn,"
+$getUser = mysqli_prepare($conn, "
 SELECT pseudo
 FROM Utilisateur
-WHERE id_user=?
+WHERE id_user = ?
 ");
 
-mysqli_stmt_bind_param($getUser,"i",$match_id);
+// On remplace le paramètre par l'ID du match
+mysqli_stmt_bind_param($getUser, "i", $match_id);
+
+// Exécution de la requête
 mysqli_stmt_execute($getUser);
+
+// Récupération du résultat
 $resUser = mysqli_stmt_get_result($getUser);
+
+// Transformation en tableau associatif
 $matchUser = mysqli_fetch_assoc($resUser);
+
 ?>
 
 <!DOCTYPE html>
@@ -232,38 +266,44 @@ h2{
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px){
 
-  h2{
-    font-size:1.1rem;
-  }
+h2{
+  font-size: 1.1rem;
+}
 
-  #chat-box{
-    height:65vh;
-    padding:12px;
-  }
+/* IMPORTANT : on évite les vh fixes */
+#chat-box{
+  height: auto;
+  flex: 1;              /* prend l’espace dispo */
+  min-height: 55vh;
+  padding: 12px;
+}
 
-  .message{
-    font-size:0.85rem;
-    max-width:85%;
-  }
+.message{
+  font-size: 0.85rem;
+  max-width: 90%;
+}
 
-  #chat-form{
-    flex-direction:column;
-  }
+#chat-form{
+  flex-direction: column;
+  gap: 8px;
+}
 
-  #chat-form button{
-    width:100%;
-  }
+#chat-form button{
+  width: 100%;
+}
 }
 
 @media (max-width: 480px){
 
-  #chat-box{
-    height:70vh;
-  }
+#chat-box{
+  min-height: 60vh;
+  padding: 10px;
+}
 
-  .message{
-    font-size:0.8rem;
-  }
+.message{
+  font-size: 0.8rem;
+  max-width: 92%;
+}
 }
 </style>
 </head>
@@ -294,18 +334,36 @@ h2{
 </div>
 
 <script>
+// Fonction qui charge les messages depuis le serveur
 function chargerMessages(){
+
+    // Appel AJAX vers le fichier PHP qui récupère les messages
     fetch("load_messages.php?id=<?= $match_id ?>")
+
+        // Conversion de la réponse en texte HTML
         .then(r => r.text())
+
+        // Traitement des données reçues
         .then(data => {
+
+            // Récupère la zone de chat dans le DOM
             const box = document.getElementById("chat-box");
+
+            // Injecte les messages HTML dans la zone de chat
             box.innerHTML = data;
+
+            // Fait défiler automatiquement vers le bas
+            // (toujours voir le dernier message)
             box.scrollTop = box.scrollHeight;
         });
 }
 
+// Rafraîchit les messages toutes les 2 secondes
 setInterval(chargerMessages, 2000);
+
+// Charge les messages dès que la page est ouverte
 window.onload = chargerMessages;
+
 </script>
 
 </body>
